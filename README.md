@@ -30,16 +30,14 @@ A versão de teste está publicada como página do claude.ai:
 Nessa página, o nível escolhe-se pelo hash: `…/BuMu8EdNBLLscY1wnvTqu7#60`;
 `#debug` abre a página de teste da lógica.
 
-## CI e GitHub Pages (opcional)
+## Versão pública (GitHub Pages)
 
-Cada push corre typecheck, testes e build (`.github/workflows/deploy.yml`).
-A publicação em **https://phreezi.github.io/pipeta/** é manual
-(*Actions → CI → Run workflow*) e precisa de configuração única no GitHub:
-1. O repositório tem de ser **público** (o Pages é gratuito só em repositórios públicos no plano Free).
-2. *Settings → Pages → Build and deployment → Source:* **GitHub Actions**.
-3. *Settings → Environments → github-pages*: se publicares a partir de um
-   ramo que não seja o principal, acrescenta-o às "Deployment branches"
-   (ou remove a regra).
+**https://phreezi.github.io/pipeta/** — também abre no browser do Tesla e
+em qualquer telemóvel, sem conta. Nível direto: `https://phreezi.github.io/pipeta/?level=60`.
+
+Cada push no ramo principal corre typecheck, testes e build e publica a
+build no ramo `gh-pages` (`.github/workflows/deploy.yml`), que o GitHub
+Pages serve. Demora 1–2 minutos a aparecer.
 
 ## Estrutura
 
