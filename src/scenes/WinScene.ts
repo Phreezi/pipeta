@@ -42,7 +42,7 @@ export class WinScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = height / 2;
     const pw = Math.min(width - dp(32), dp(340));
-    const ph = dp(370);
+    const ph = dp(400);
 
     const dim = this.add.rectangle(0, 0, width, height, 0x000000, 0.45).setOrigin(0).setInteractive();
     const panel = this.add.container(cx, cy);
@@ -52,12 +52,12 @@ export class WinScene extends Phaser.Scene {
     const size = dp(60);
     const starObjs = [0, 1, 2].map((k) =>
       this.add
-        .image((k - 1) * dp(70), -dp(42) + (k === 1 ? -dp(10) : 0), STAR_KEY)
+        .image((k - 1) * dp(70), -dp(52) + (k === 1 ? -dp(10) : 0), STAR_KEY)
         .setDisplaySize(size, size)
         .setTint(k < stars ? COLORS.star : COLORS.starEmpty),
     );
-    const movesText = this.add.text(0, dp(26), t('movesMade', { n: moves }), textStyle(20)).setOrigin(0.5);
-    const best = this.add.text(0, dp(54), t('minMoves', { n: minMoves }), textStyle(15, COLORS.textDim, false)).setOrigin(0.5);
+    const movesText = this.add.text(0, dp(18), t('movesMade', { n: moves }), textStyle(20)).setOrigin(0.5);
+    const best = this.add.text(0, dp(46), t('minMoves', { n: minMoves }), textStyle(15, COLORS.textDim, false)).setOrigin(0.5);
     const next = new Button(this, 0, ph / 2 - dp(96), {
       label: t('nextLevel'),
       width: pw - dp(48),

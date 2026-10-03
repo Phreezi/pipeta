@@ -72,7 +72,7 @@ export class GameScene extends Phaser.Scene {
     this.toast = this.add.text(0, 0, '', textStyle(15)).setOrigin(0.5).setAlpha(0).setDepth(20);
 
     const btnW = dp(100);
-    this.undoBtn = new Button(this, 0, 0, { label: '', icon: iconKey('return'), width: btnW, onClick: () => this.onUndo() });
+    this.undoBtn = new Button(this, 0, 0, { label: t('undo'), icon: iconKey('return'), width: btnW, onClick: () => this.onUndo() });
     this.restartBtn = new Button(this, 0, 0, { label: t('restart'), icon: iconKey('rewind'), width: btnW, onClick: () => this.onRestart() });
     this.extraBtn = new Button(this, 0, 0, { label: t('extraTube'), icon: iconKey('plus'), width: btnW, onClick: () => this.onExtraTube() });
     const sq = dp(48);

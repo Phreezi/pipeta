@@ -42,7 +42,7 @@ function drawSymbol(g: Phaser.GameObjects.Graphics, index: number, cx: number, c
   g.fillStyle(color, alpha);
   g.lineStyle(s * 0.32, color, alpha);
   switch (index % 12) {
-    case 0: g.fillCircle(cx, cy, s * 0.62); break; // círculo
+    case 0: g.fillCircle(cx, cy, s * 0.72); break; // círculo
     case 1: polygon(g, cx, cy + s * 0.12, s * 0.85, 3, -Math.PI / 2); break; // triângulo
     case 2: g.fillRect(cx - s * 0.62, cy - s * 0.62, s * 1.24, s * 1.24); break; // quadrado
     case 3: polygon(g, cx, cy, s * 0.85, 4, 0); break; // losango

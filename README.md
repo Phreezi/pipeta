@@ -3,8 +3,9 @@
 Jogo de puzzle "ball sort" (Phaser 3 + TypeScript + Vite), para Android
 (Capacitor) e web. Leve, offline, níveis gerados por algoritmo.
 
-> **Estado:** Fase 2 concluída — cena de jogo jogável no browser.
-> Menus, persistência e ecrã de vitória completo chegam na Fase 3.
+> **Estado:** Fase 3 concluída — menu, jogo, vitória com estrelas,
+> definições, gravação do progresso e idiomas (pt-PT/en).
+> Ajudas com anúncios simulados chegam na Fase 4.
 
 ### Parâmetros de URL úteis para testes
 - `?level=N` ou `#N` — abre diretamente o nível N (ex.: `#60`, um nível difícil).
@@ -106,6 +107,30 @@ assets-src/    arquivos originais dos assets (fora da build)
 - **Tubo Extra** funciona já sem anúncio; na Fase 4 passa a exigir vídeo.
 - **Sons:** ficheiros do Kenney (OGG); se não carregarem, toca um som
   sintetizado de substituição.
+
+## Decisões da Fase 3
+
+- **Ecrãs:** Menu (Jogar no nível atual, nível atual, total de estrelas,
+  Definições) → Jogo (botões Menu e Definições no topo) → Vitória
+  (estrelas, jogadas, mínimo, Próximo nível, Menu). As Definições abrem por
+  cima do menu ou do jogo, que fica em pausa.
+- **Gravação:** `SaveStore` guarda nível atual, melhores estrelas por nível,
+  definições e o nível em curso (`SessionSnapshot`) a cada jogada, com
+  escrita agrupada (300 ms) e gravação imediata ao minimizar/fechar.
+  Formato com `version` e `migrate()` que valida campo a campo.
+  Armazenamento: `LocalStorageAdapter` (web), `PreferencesStorage`
+  (Android, ligado na Fase 5), `MemoryStorage` (fallback/testes).
+- **Retomar:** ao reabrir, o nível em curso só é retomado se o tabuleiro
+  inicial gravado coincidir com o gerado (protege contra mudanças futuras
+  no gerador).
+- **Idioma:** Automático (idioma do dispositivo) → Português → English.
+- **Modo daltónico:** cada cor tem uma forma própria desenhada na bola.
+- **Política de privacidade:** `public/privacy.html` (pt/en), publicada em
+  https://phreezi.github.io/pipeta/privacy.html (URL em `src/config/app.ts`).
+  O contacto aponta para as issues do GitHub — troca por um email antes de publicar na Play Store.
+- **Gerir consentimento:** na web mostra "Disponível na app Android"; na
+  Fase 5 abre o formulário da Google UMP.
+- **Música:** a opção já existe nas definições; a música entra na Fase 6.
 
 ## Assets do Kenney esperados
 
