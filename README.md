@@ -7,8 +7,8 @@ Jogo de puzzle "ball sort" (Phaser 3 + TypeScript + Vite), para Android
 > Menus, persistência e ecrã de vitória completo chegam na Fase 3.
 
 ### Parâmetros de URL úteis para testes
-- `?level=N` — abre diretamente o nível N (ex.: `?level=60`, um nível difícil).
-- `?debug` — página de teste da lógica da Fase 1 (gerador/solver, "Ver solução").
+- `?level=N` ou `#N` — abre diretamente o nível N (ex.: `#60`, um nível difícil).
+- `?debug` ou `#debug` — página de teste da lógica da Fase 1 (gerador/solver, "Ver solução").
 
 ## Como correr
 
@@ -22,12 +22,19 @@ npm run typecheck  # TypeScript strict
 npm run build      # build de produção em dist/
 ```
 
-## Versão pública para testar (GitHub Pages)
+## Versão para testar no telemóvel
 
-Cada push corre os testes, faz a build e publica em
-**https://phreezi.github.io/pipeta/** (workflow `.github/workflows/deploy.yml`).
+A versão de teste está publicada como página do claude.ai:
+**https://claude.ai/artifact/BuMu8EdNBLLscY1wnvTqu7**
+(gerada com `npm run build:artifact` → `dist/artifact.html` + `dist/assets/`).
+Nessa página, o nível escolhe-se pelo hash: `…/BuMu8EdNBLLscY1wnvTqu7#60`;
+`#debug` abre a página de teste da lógica.
 
-Configuração única no GitHub:
+## CI e GitHub Pages (opcional)
+
+Cada push corre typecheck, testes e build (`.github/workflows/deploy.yml`).
+A publicação em **https://phreezi.github.io/pipeta/** é manual
+(*Actions → CI → Run workflow*) e precisa de configuração única no GitHub:
 1. O repositório tem de ser **público** (o Pages é gratuito só em repositórios públicos no plano Free).
 2. *Settings → Pages → Build and deployment → Source:* **GitHub Actions**.
 3. *Settings → Environments → github-pages*: se publicares a partir de um

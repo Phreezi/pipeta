@@ -1,4 +1,4 @@
-name: Test & deploy to GitHub Pages
+name: CI
 
 on:
   push:
@@ -31,7 +31,10 @@ jobs:
         with:
           path: dist
 
+  # Publicação no GitHub Pages: só manual (Actions → CI → Run workflow),
+  # depois de ativar Settings → Pages → Source: GitHub Actions.
   deploy:
+    if: github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     environment:

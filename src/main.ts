@@ -5,13 +5,20 @@ import { GameScene } from './scenes/GameScene';
 import { initI18n } from './services/i18n';
 
 const params = new URLSearchParams(window.location.search);
+/** `#debug` ou `#60` também funcionam (o visualizador do claude.ai só passa o hash). */
+const hash = window.location.hash.replace(/^#/, '');
 
 function startGame(): void {
   initI18n();
-  const size = (): { w: number; h: number } => ({
-    w: Math.round(window.innerWidth * DPR),
-    h: Math.round(window.innerHeight * DPR),
-  });
+  const host = document.getElementById('app');
+  // Tamanho do contentor (respeita as margens seguras do ecrã).
+  const size = (): { w: number; h: number } => {
+    const r = host?.getBoundingClientRect();
+    return {
+      w: Math.round((r?.width || window.innerWidth) * DPR),
+      h: Math.round((r?.height || window.innerHeight) * DPR),
+    };
+  };
   const { w, h } = size();
   // Canvas em resolução real do ecrã (até 2x) e "zoom" CSS inverso: texto e bolas nítidos.
   const game = new Phaser.Game({
@@ -34,7 +41,7 @@ function startGame(): void {
   window.visualViewport?.addEventListener('resize', onResize);
 }
 
-if (params.has('debug')) {
+if (params.has('debug') || hash === 'debug') {
   // Página de teste da lógica (Fase 1): ?debug
   void import('./debug/levelViewer').then(({ mountLevelViewer }) => {
     const root = document.getElementById('app');

@@ -46,7 +46,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data: GameSceneData): void {
-    const fromUrl = Number(new URLSearchParams(window.location.search).get('level'));
+    const hashLevel = /^(?:level)?(\d+)$/.exec(window.location.hash.replace(/^#/, ''))?.[1];
+    const fromUrl = Number(new URLSearchParams(window.location.search).get('level') ?? hashLevel);
     this.levelNumber = data.level ?? (Number.isInteger(fromUrl) && fromUrl > 0 ? fromUrl : 1);
   }
 
