@@ -23,6 +23,8 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     generateTextures(this, TUBE_CAPACITY);
-    this.scene.start('game');
+    // Com ?level=N / #N vai direto ao jogo (testes); senão, menu principal.
+    const direct = /[?&]level=\d+/.test(window.location.search) || /^#(?:level)?\d+$/.test(window.location.hash);
+    this.scene.start(direct ? 'game' : 'menu');
   }
 }

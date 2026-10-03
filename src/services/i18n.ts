@@ -32,9 +32,15 @@ class I18n {
 
 export const i18n = new I18n();
 
-export function initI18n(): void {
+export function deviceLocale(): Locale {
   const langs = typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : [];
-  i18n.setLocale(detectLocale(langs));
+  return detectLocale(langs);
+}
+
+/** Aplica o idioma escolhido nas definições (`null` = idioma do dispositivo). */
+export function applyLocale(choice: Locale | null): void {
+  i18n.setLocale(choice ?? deviceLocale());
+  if (typeof document !== 'undefined') document.documentElement.lang = i18n.locale;
 }
 
 export const t = (key: StringKey, params?: Readonly<Record<string, string | number>>): string => i18n.t(key, params);

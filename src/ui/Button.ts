@@ -17,7 +17,8 @@ export class Button extends Phaser.GameObjects.Container {
   private readonly text: Phaser.GameObjects.Text;
   private readonly iconImg: Phaser.GameObjects.Image | null;
   private enabledState = true;
-  private readonly baseColor: number;
+  private baseColor: number;
+  private readonly iconOnly: boolean;
 
   constructor(scene: Phaser.Scene, x: number, y: number, opts: ButtonOptions) {
     super(scene, x, y);
@@ -28,13 +29,11 @@ export class Button extends Phaser.GameObjects.Container {
     this.add(this.bg);
 
     const hasIcon = opts.icon !== undefined && scene.textures.exists(opts.icon);
-    this.iconImg = hasIcon && opts.icon !== undefined ? scene.add.image(0, -h * 0.14, opts.icon) : null;
-    if (this.iconImg !== null) {
-      this.iconImg.setDisplaySize(h * 0.42, h * 0.42);
-      this.add(this.iconImg);
-    }
+    this.iconOnly = hasIcon && opts.label === '';
+    this.iconImg = hasIcon && opts.icon !== undefined ? scene.add.image(0, 0, opts.icon) : null;
+    if (this.iconImg !== null) this.add(this.iconImg);
     this.text = scene.add
-      .text(0, hasIcon ? h * 0.26 : 0, opts.label, {
+      .text(0, 0, opts.label, {
         fontFamily: FONT_FAMILY,
         fontSize: `${Math.round(hasIcon ? dp(12) : dp(17))}px`,
         fontStyle: 'bold',
@@ -44,7 +43,7 @@ export class Button extends Phaser.GameObjects.Container {
       .setOrigin(0.5);
     this.add(this.text);
 
-    this.setSize(opts.width, h);
+    this.resize(opts.width, h);
     this.setInteractive({ useHandCursor: true });
     this.on('pointerdown', () => {
       if (!this.enabledState) return;
@@ -63,6 +62,12 @@ export class Button extends Phaser.GameObjects.Container {
     return this;
   }
 
+  setColor(color: number): this {
+    this.baseColor = color;
+    if (this.enabledState) this.bg.setTint(color);
+    return this;
+  }
+
   setEnabled(enabled: boolean): this {
     this.enabledState = enabled;
     this.bg.setTint(enabled ? this.baseColor : COLORS.buttonDisabled);
@@ -77,10 +82,14 @@ export class Button extends Phaser.GameObjects.Container {
   resize(width: number, height: number): this {
     this.bg.setSize(width, height);
     this.setSize(width, height);
-    this.input?.hitArea.setSize?.(width, height);
+    const hit: unknown = this.input?.hitArea;
+    if (hit instanceof Phaser.Geom.Rectangle) hit.setSize(width, height);
     if (this.iconImg !== null) {
-      this.iconImg.setDisplaySize(height * 0.42, height * 0.42).setY(-height * 0.14);
-      this.text.setY(height * 0.26);
+      const size = this.iconOnly ? height * 0.56 : height * 0.42;
+      this.iconImg.setDisplaySize(size, size).setY(this.iconOnly ? 0 : -height * 0.14);
+      this.text.setY(this.iconOnly ? 0 : height * 0.26);
+    } else if (this.text.text.length > 0 && this.text.text.includes('\n') === false) {
+      this.text.setY(0);
     }
     return this;
   }

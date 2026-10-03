@@ -1,12 +1,15 @@
 import Phaser from 'phaser';
-import { computeStars, GameSession, type Level, type Move } from '../core';
+import { computeStars, GameSession, type Board, type Level, type Move } from '../core';
+import { levels, store } from '../app/context';
+import { recordWin } from '../services/save';
+import { addBackground } from '../ui/background';
+import type { WinData } from './WinScene';
 import { ANIM, COLORS, dp, DPR, FONT_FAMILY } from '../config/display';
 import { audio, type Sfx } from '../services/audio';
 import { t } from '../services/i18n';
-import { LevelService } from '../services/levels';
 import { Button } from '../ui/Button';
 import { ballPosition, computeLayout, liftPosition, type Layout } from '../ui/layout';
-import { BALL_TEX, ballKey, BG_KEY, drawBackground, PARTICLE_KEY, STAR_KEY, TUBE_KEY } from '../ui/textures';
+import { BALL_TEX, ballKey, PARTICLE_KEY, TUBE_KEY } from '../ui/textures';
 import { BALL_COLORS } from '../config/palette';
 import { iconKey } from './BootScene';
 
@@ -19,13 +22,15 @@ export interface GameSceneData {
 
 /** Cena principal: tubos, bolas, HUD e botões. Toda a lógica vem de `GameSession`. */
 export class GameScene extends Phaser.Scene {
-  private readonly levels = new LevelService();
   private levelNumber = 1;
   private level: Level | null = null;
   private session: GameSession | null = null;
   private layout: Layout | null = null;
 
-  private bg!: Phaser.GameObjects.Image;
+  private homeBtn!: Button;
+  private gearBtn!: Button;
+  private colorBlind = false;
+  private localeAtPause = '';
   private levelText!: Phaser.GameObjects.Text;
   private movesText!: Phaser.GameObjects.Text;
   private tagText!: Phaser.GameObjects.Text;
@@ -38,7 +43,7 @@ export class GameScene extends Phaser.Scene {
   private hitZones: Phaser.GameObjects.Zone[] = [];
   private balls: Phaser.GameObjects.Image[][] = [];
   private readonly tweensBySprite = new Map<Phaser.GameObjects.Image, Phaser.Tweens.Tween>();
-  private winPanel: Phaser.GameObjects.Container | null = null;
+  private won = false;
   private loading = false;
 
   constructor() {
@@ -48,11 +53,13 @@ export class GameScene extends Phaser.Scene {
   init(data: GameSceneData): void {
     const hashLevel = /^(?:level)?(\d+)$/.exec(window.location.hash.replace(/^#/, ''))?.[1];
     const fromUrl = Number(new URLSearchParams(window.location.search).get('level') ?? hashLevel);
-    this.levelNumber = data.level ?? (Number.isInteger(fromUrl) && fromUrl > 0 ? fromUrl : 1);
+    const urlLevel = Number.isInteger(fromUrl) && fromUrl > 0 ? fromUrl : null;
+    this.levelNumber = data.level ?? urlLevel ?? store.value.currentLevel;
   }
 
   create(): void {
-    this.bg = this.add.image(0, 0, BG_KEY).setOrigin(0).setDepth(-10);
+    addBackground(this);
+    this.colorBlind = store.value.settings.colorBlind;
     const textStyle = (size: number, color: string = COLORS.text): Phaser.Types.GameObjects.Text.TextStyle => ({
       fontFamily: FONT_FAMILY,
       fontSize: `${Math.round(dp(size))}px`,
@@ -68,6 +75,16 @@ export class GameScene extends Phaser.Scene {
     this.undoBtn = new Button(this, 0, 0, { label: '', icon: iconKey('return'), width: btnW, onClick: () => this.onUndo() });
     this.restartBtn = new Button(this, 0, 0, { label: t('restart'), icon: iconKey('rewind'), width: btnW, onClick: () => this.onRestart() });
     this.extraBtn = new Button(this, 0, 0, { label: t('extraTube'), icon: iconKey('plus'), width: btnW, onClick: () => this.onExtraTube() });
+    const sq = dp(48);
+    this.homeBtn = new Button(this, 0, 0, { label: '', icon: iconKey('home'), width: sq, height: sq, onClick: () => this.goMenu() });
+    this.gearBtn = new Button(this, 0, 0, { label: '', icon: iconKey('gear'), width: sq, height: sq, onClick: () => this.openSettings() });
+
+    this.events.on('next-level', () => void this.loadLevel(this.levelNumber + 1));
+    this.events.on(Phaser.Scenes.Events.RESUME, () => this.onResumeFromSettings());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.events.off('next-level');
+      this.events.off(Phaser.Scenes.Events.RESUME);
+    });
 
     this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this));
@@ -80,22 +97,28 @@ export class GameScene extends Phaser.Scene {
 
   private async loadLevel(n: number): Promise<void> {
     this.loading = true;
+    this.won = false;
     this.levelNumber = n;
     this.clearBoard();
-    this.closeWinPanel();
     this.levelText.setText(t('level', { n }));
     this.movesText.setText(t('loading'));
     this.tagText.setText('');
     this.updateButtons();
-    const level = await this.levels.get(n);
-    if (this.levelNumber !== n) return;
+    const level = await levels.get(n);
+    if (this.levelNumber !== n || !this.sys.isActive()) return;
     this.level = level;
-    this.session = new GameSession(level.level, level.board, level.capacity);
+    const saved = store.value.inProgress;
+    const resumed = saved !== null && saved.level === n && sameStart(saved.initialBoard, level.board);
+    this.session = resumed
+      ? GameSession.fromSnapshot(saved, level.capacity)
+      : new GameSession(level.level, level.board, level.capacity);
     this.loading = false;
     this.buildBoard();
     this.updateHud();
+    if (resumed && this.session.moveCount > 0) this.showToast(t('resumed'));
+    this.persist();
     // Pré-gera o seguinte enquanto se joga.
-    this.levels.prefetch(n + 1);
+    levels.prefetch(n + 1);
   }
 
   private clearBoard(): void {
@@ -115,7 +138,7 @@ export class GameScene extends Phaser.Scene {
     this.clearBoard();
     session.board.forEach((tube, i) => {
       this.addTubeObjects(i);
-      this.balls.push(tube.map((color) => this.add.image(0, 0, ballKey(color)).setDepth(2)));
+      this.balls.push(tube.map((color) => this.add.image(0, 0, ballKey(color, this.colorBlind)).setDepth(2)));
     });
     this.relayout(false);
   }
@@ -136,8 +159,8 @@ export class GameScene extends Phaser.Scene {
 
   private layoutChrome(): void {
     const { width, height } = this.scale;
-    drawBackground(this, width, height, COLORS.bgTop, COLORS.bgBottom);
-    this.bg.setTexture(BG_KEY).setDisplaySize(width, height);
+    this.homeBtn.setPosition(dp(12) + dp(24), dp(12) + dp(24));
+    this.gearBtn.setPosition(width - dp(12) - dp(24), dp(12) + dp(24));
     this.levelText.setPosition(width / 2, dp(14));
     this.movesText.setPosition(width / 2, dp(48));
     this.tagText.setPosition(width / 2, dp(68));
@@ -149,7 +172,6 @@ export class GameScene extends Phaser.Scene {
     [this.undoBtn, this.restartBtn, this.extraBtn].forEach((b, i) => {
       b.resize(btnW, btnH).setPosition(width / 2 + (i - 1) * (btnW + gap), y);
     });
-    this.winPanel !== null && this.showWinPanel(false);
   }
 
   private relayout(animate: boolean): void {
@@ -323,7 +345,7 @@ export class GameScene extends Phaser.Scene {
   private onTubeTap(i: number): void {
     const session = this.session;
     const layout = this.layout;
-    if (session === null || layout === null || this.loading || this.winPanel !== null) return;
+    if (session === null || layout === null || this.loading || this.won) return;
     const r = session.tap(i);
     switch (r.kind) {
       case 'ignored':
@@ -357,6 +379,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.tintAll();
     this.updateHud();
+    if (r.kind === 'move') this.persist();
   }
 
   private topBall(i: number): Phaser.GameObjects.Image | undefined {
@@ -401,7 +424,7 @@ export class GameScene extends Phaser.Scene {
 
   private onUndo(): void {
     const s = this.session;
-    if (s === null || this.winPanel !== null) return;
+    if (s === null || this.won || this.loading) return;
     this.dropSelection();
     const r = s.undo();
     if (!r.ok) {
@@ -417,20 +440,22 @@ export class GameScene extends Phaser.Scene {
     }
     this.tintAll();
     this.updateHud();
+    this.persist();
   }
 
   private onRestart(): void {
     const s = this.session;
-    if (s === null || this.winPanel !== null) return;
+    if (s === null || this.won || this.loading) return;
     this.sfx('click');
     s.restart();
     this.buildBoard();
     this.updateHud();
+    this.persist();
   }
 
   private onExtraTube(): void {
     const s = this.session;
-    if (s === null || this.winPanel !== null) return;
+    if (s === null || this.won || this.loading) return;
     this.dropSelection();
     if (!s.addExtraTube()) {
       this.showToast(t('extraUsed'));
@@ -443,6 +468,7 @@ export class GameScene extends Phaser.Scene {
     this.balls.push([]);
     this.relayout(true);
     this.updateHud();
+    this.persist();
   }
 
   private updateHud(): void {
@@ -472,67 +498,69 @@ export class GameScene extends Phaser.Scene {
   // ---------------------------------------------------------------- vitória
 
   private onSolved(): void {
+    const s = this.session;
+    const level = this.level;
+    if (s === null || level === null || this.won) return;
+    this.won = true;
+    const stars = computeStars(s.moveCount, level.minMoves);
+    store.update((d) => recordWin(d, level.level, stars));
+    void store.flush();
+    this.updateButtons();
     this.time.delayedCall(250, () => {
       this.sfx('win');
       this.confetti();
-      this.showWinPanel(true);
+      const data: WinData = { level: level.level, moves: s.moveCount, minMoves: level.minMoves, stars };
+      this.scene.launch('win', data);
     });
   }
 
-  private closeWinPanel(): void {
-    this.winPanel?.destroy();
-    this.winPanel = null;
-  }
+  // ---------------------------------------------------------------- gravação e navegação
 
-  /** Painel simples de vitória (o ecrã completo chega na Fase 3). */
-  private showWinPanel(animate: boolean): void {
+  /** Guarda o nível em curso (para retomar ao reabrir a app). */
+  private persist(): void {
     const s = this.session;
-    const level = this.level;
-    if (s === null || level === null) return;
-    this.closeWinPanel();
-    const { width, height } = this.scale;
-    const pw = Math.min(width - dp(32), dp(340));
-    const ph = dp(300);
-    const panel = this.add.container(width / 2, height / 2).setDepth(40);
-    const dim = this.add.rectangle(0, 0, width, height, 0x000000, 0.45).setInteractive();
-    const box = this.add.nineslice(0, 0, 'button', undefined, pw, ph, 20, 20, 20, 20).setTint(COLORS.panel);
-    const title = this.add
-      .text(0, -ph / 2 + dp(28), t('levelComplete'), { fontFamily: FONT_FAMILY, fontSize: `${Math.round(dp(24))}px`, fontStyle: 'bold', color: COLORS.text })
-      .setOrigin(0.5, 0);
-    const stars = computeStars(s.moveCount, level.minMoves);
-    const starObjs = [0, 1, 2].map((k) =>
-      this.add
-        .image((k - 1) * dp(64), -dp(28), STAR_KEY)
-        .setDisplaySize(dp(56), dp(56))
-        .setTint(k < stars ? COLORS.star : COLORS.starEmpty),
-    );
-    const info = this.add
-      .text(0, dp(28), `${t('movesMade', { n: s.moveCount })} · ${t('minMoves', { n: level.minMoves })}`, {
-        fontFamily: FONT_FAMILY,
-        fontSize: `${Math.round(dp(16))}px`,
-        color: COLORS.textDim,
-      })
-      .setOrigin(0.5);
-    const next = new Button(this, 0, ph / 2 - dp(52), {
-      label: t('nextLevel'),
-      width: pw - dp(48),
-      height: dp(56),
-      color: 0x3cb44b,
-      onClick: () => {
-        this.sfx('click');
-        void this.loadLevel(this.levelNumber + 1);
-      },
-    });
-    panel.add([dim, box, title, ...starObjs, info, next]);
-    this.winPanel = panel;
-    if (animate) {
-      panel.setScale(0.85).setAlpha(0);
-      this.tweens.add({ targets: panel, scale: 1, alpha: 1, duration: 220, ease: 'Back.easeOut' });
-      starObjs.forEach((st, k) => {
-        const size = dp(56);
-        st.setDisplaySize(1, 1);
-        this.tweens.add({ targets: st, displayWidth: size, displayHeight: size, delay: 200 + k * 140, duration: 220, ease: 'Back.easeOut' });
-      });
+    if (s === null || this.won || s.solved) return;
+    const n = this.levelNumber;
+    store.update((d) => ({ ...d, currentLevel: Math.max(d.currentLevel, n), inProgress: s.toSnapshot() }));
+  }
+
+  private goMenu(): void {
+    this.sfx('click');
+    void store.flush();
+    this.scene.stop('win');
+    this.scene.start('menu');
+  }
+
+  private openSettings(): void {
+    this.sfx('click');
+    this.dropSelection();
+    this.localeAtPause = t('level', { n: 0 });
+    this.scene.launch('settings', { from: 'game' });
+    this.scene.pause();
+  }
+
+  private onResumeFromSettings(): void {
+    // Idioma mudou: recria a cena (o estado está gravado e é retomado).
+    if (t('level', { n: 0 }) !== this.localeAtPause) {
+      this.persist();
+      this.scene.restart({ level: this.levelNumber });
+      return;
+    }
+    const cb = store.value.settings.colorBlind;
+    if (cb !== this.colorBlind) {
+      this.colorBlind = cb;
+      const s = this.session;
+      if (s !== null) {
+        s.board.forEach((tube, i) => tube.forEach((color, k) => this.balls[i]?.[k]?.setTexture(ballKey(color, cb))));
+      }
     }
   }
+}
+
+/** O tabuleiro gravado corresponde ao nível gerado (ignorando o tubo extra). */
+function sameStart(saved: Board, generated: Board): boolean {
+  return generated.every((tube, i) => {
+    const s = saved[i];
+    return s !== undefined && s.length === tube.length && s.every((c, k) => c === tube[k]);
+  });
 }

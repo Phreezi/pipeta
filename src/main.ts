@@ -2,14 +2,17 @@ import Phaser from 'phaser';
 import { DPR } from './config/display';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
-import { initI18n } from './services/i18n';
+import { initApp } from './app/context';
+import { MenuScene } from './scenes/MenuScene';
+import { SettingsScene } from './scenes/SettingsScene';
+import { WinScene } from './scenes/WinScene';
 
 const params = new URLSearchParams(window.location.search);
 /** `#debug` ou `#60` também funcionam (o visualizador do claude.ai só passa o hash). */
 const hash = window.location.hash.replace(/^#/, '');
 
-function startGame(): void {
-  initI18n();
+async function startGame(): Promise<void> {
+  await initApp();
   const host = document.getElementById('app');
   // Tamanho do contentor (respeita as margens seguras do ecrã).
   const size = (): { w: number; h: number } => {
@@ -29,7 +32,7 @@ function startGame(): void {
     render: { antialias: true, powerPreference: 'high-performance' },
     fps: { target: 60 },
     input: { activePointers: 2 },
-    scene: [BootScene, GameScene],
+    scene: [BootScene, MenuScene, GameScene, WinScene, SettingsScene],
   });
   if (import.meta.env.DEV) (window as unknown as { game: Phaser.Game }).game = game;
   const onResize = (): void => {
@@ -48,5 +51,5 @@ if (params.has('debug') || hash === 'debug') {
     if (root !== null) mountLevelViewer(root);
   });
 } else {
-  startGame();
+  void startGame();
 }
