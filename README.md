@@ -3,9 +3,12 @@
 Jogo de puzzle "ball sort" (Phaser 3 + TypeScript + Vite), para Android
 (Capacitor) e web. Leve, offline, níveis gerados por algoritmo.
 
-> **Estado:** Fase 1 concluída — lógica do jogo, gerador, solver e testes.
-> A versão web atual é uma página de teste da lógica (sem Phaser); a cena
-> de jogo chega na Fase 2.
+> **Estado:** Fase 2 concluída — cena de jogo jogável no browser.
+> Menus, persistência e ecrã de vitória completo chegam na Fase 3.
+
+### Parâmetros de URL úteis para testes
+- `?level=N` — abre diretamente o nível N (ex.: `?level=60`, um nível difícil).
+- `?debug` — página de teste da lógica da Fase 1 (gerador/solver, "Ver solução").
 
 ## Como correr
 
@@ -44,8 +47,13 @@ src/
     solver.ts      solver A* com memoização de estados
     stars.ts       cálculo de estrelas
     session.ts     sessão de jogo: seleção, desfazer, reiniciar, tubo extra, snapshot
-  config/      paleta de cores e símbolos do modo daltónico
-  debug/       página de teste da Fase 1
+  config/      paleta, cores da interface, durações das animações, DPR
+  scenes/      BootScene (texturas + assets) e GameScene (jogo)
+  services/    áudio, i18n, níveis (Web Worker + cache + pré-geração)
+  i18n/        todos os textos (pt-PT e en)
+  ui/          layout responsivo (lógica pura, testada), botões, texturas geradas
+  workers/     Web Worker do gerador de níveis
+  debug/       página de teste da Fase 1 (?debug)
 tests/core/    testes Vitest
 assets-src/    arquivos originais dos assets (fora da build)
 ```
@@ -78,11 +86,27 @@ assets-src/    arquivos originais dos assets (fora da build)
   níveis de 12 cores, em servidor). Na Fase 2 a geração corre num Web Worker
   e o nível seguinte é pré-gerado durante o jogo, para não haver esperas.
 
+## Decisões da Fase 2
+
+- **Nitidez:** o canvas é criado na resolução real do ecrã (devicePixelRatio,
+  limitado a 2 para manter 60 fps) e reduzido por CSS.
+- **Bolas, tubos, botões, estrelas e confetes** são desenhados em código
+  (Phaser Graphics → texturas) a partir da paleta de 12 cores.
+- **Layout:** 1 ou 2 filas, escolhendo a que dá bolas maiores; zonas de toque
+  com ≥ 48 dp de largura até 14 tubos (com 15 — 12 cores + 2 vazios + extra —
+  ficam com ~45 dp num ecrã de 360 dp).
+- **Animações:** levantar 150 ms, arco 220 ms, pousar com ressalto 170 ms,
+  abanar 240 ms em jogada inválida (com vibração curta).
+- **Níveis gerados num Web Worker**, com o seguinte pré-gerado durante o jogo.
+- **Tubo Extra** funciona já sem anúncio; na Fase 4 passa a exigir vídeo.
+- **Sons:** ficheiros do Kenney (OGG); se não carregarem, toca um som
+  sintetizado de substituição.
+
 ## Assets do Kenney esperados
 
-Os arquivos originais estão em `assets-src/`. A partir da Fase 2 os
-ficheiros abaixo são extraídos para `public/assets/kenney/` (lista
-preliminar; o jogo corre sem eles com placeholders gerados em código).
+Os arquivos originais estão em `assets-src/`. Os ficheiros abaixo são
+copiados para `public/assets/kenney/` (sons, jingle e ícones já incluídos).
+Se faltar algum, o jogo usa placeholders gerados em código e avisa na consola.
 
 **UI Pack** → `public/assets/kenney/ui/`
 - `PNG/Blue/Default/button_rectangle_depth_gradient.png` → `button_primary.png`
@@ -91,18 +115,18 @@ preliminar; o jogo corre sem eles com placeholders gerados em código).
 - `PNG/Blue/Default/button_round_depth_gradient.png` → `button_round.png`
 - `PNG/Grey/Default/check_square_grey_checkmark.png`, `check_square_grey.png` → toggles (definições)
 
-**Game Icons** (`PNG/White/2x/`) → `public/assets/kenney/icons/`
+**Game Icons** (`PNG/White/2x/`) → `public/assets/kenney/icons/` (mesmo nome)
 - `return.png` (desfazer), `rewind.png` (reiniciar), `plus.png` (tubo extra),
   `fastForward.png` (saltar), `gear.png` (definições), `home.png` (menu),
   `audioOn.png`, `audioOff.png`, `musicOn.png`, `musicOff.png`,
   `star.png`, `video.png` (botões com vídeo), `next.png`, `checkmark.png`, `cross.png`
 
-**Interface Sounds** (`Audio/`) → `public/assets/kenney/sfx/`
+**Interface Sounds** (`Audio/`) → `public/assets/kenney/sfx/` (mesmo nome)
 - `select_001.ogg` (levantar bola), `drop_002.ogg` (pousar), `error_004.ogg`
   (jogada inválida), `confirmation_002.ogg` (tubo completo),
   `click_002.ogg` (botões), `maximize_006.ogg` (tubo extra)
 
-**Music Jingles** → `jingles_PIZZI00.ogg` (vitória) ·
+**Music Jingles** (`Audio/Pizzicato jingles/`) → `public/assets/kenney/jingles/jingles_PIZZI00.ogg` (vitória) ·
 **Música de fundo** → 6 faixas "JRPG Music Pack 4 — Calm" (Juhani Junkala, CC0),
 recomprimidas e carregadas em segundo plano (fora do carregamento inicial).
 

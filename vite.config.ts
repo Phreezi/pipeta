@@ -6,6 +6,8 @@ export default defineConfig({
   build: {
     target: 'es2020',
     assetsInlineLimit: 0,
+    // O Phaser sozinho tem ~1,2 MB (330 kB gzip).
+    chunkSizeWarningLimit: 1400,
   },
   test: {
     include: ['tests/**/*.test.ts'],

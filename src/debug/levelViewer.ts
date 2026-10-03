@@ -4,6 +4,7 @@ import { BALL_COLORS, BALL_SYMBOLS, cssColor } from '../config/palette';
 const CSS = `
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
+  html, body { overflow: auto !important; touch-action: auto !important; height: auto !important; }
   body { margin: 0; min-height: 100vh; font-family: system-ui, sans-serif; color: #eef;
     background: linear-gradient(160deg, #1d2340, #3a2d5c); }
   .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
